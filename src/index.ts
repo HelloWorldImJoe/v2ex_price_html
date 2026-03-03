@@ -41,6 +41,7 @@ export default {
 		if (cached) {
 			const res = new Response(cached.body, cached);
 			res.headers.set("X-Cache", "HIT");
+			res.headers.set("Cache-Control", "no-store");			
 			return res;
 		}
 
@@ -54,19 +55,27 @@ export default {
 			await new Promise((resolve) => setTimeout(resolve, 5000));
 			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 800, height: 300 } });
 
-			const response = new Response(screenshot, {
+			// 存入 Cache API 的副本：保留 max-age=60 让 Cloudflare 知道 TTL
+			const cacheResponse = new Response(screenshot, {
 				status: 200,
 				headers: {
 					"Content-Type": "image/png",
 					"Cache-Control": "public, max-age=60",
-					"X-Cache": "MISS",
 				},
 			});
 
 			// --- 3. 存入缓存（使用 waitUntil 避免阻塞响应） ---
-			ctx.waitUntil(cache.put(cacheRequest, response.clone()));
+			ctx.waitUntil(cache.put(cacheRequest, cacheResponse.clone()));
 
-			return response;
+			// 返回给浏览器的副本：禁止浏览器本地缓存，确保每次都拿到最新图片
+			return new Response(screenshot, {
+				status: 200,
+				headers: {
+					"Content-Type": "image/png",
+					"Cache-Control": "no-store",
+					"X-Cache": "MISS",
+				},
+			});
 		} finally {
 			await browser.close();
 		}
