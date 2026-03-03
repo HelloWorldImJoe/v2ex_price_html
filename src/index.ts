@@ -52,15 +52,15 @@ export default {
 			await page.setViewport({ width: 800, height: 300 });
 			await page.setContent(HTML_CONTENT, { waitUntil: "networkidle0" });
 			// 等待图表组件渲染完成
-			await new Promise((resolve) => setTimeout(resolve, 5000));
+			await new Promise((resolve) => setTimeout(resolve, 10000));
 			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 800, height: 300 } });
 
-			// 存入 Cache API 的副本：保留 max-age=60 让 Cloudflare 知道 TTL
+			// 存入 Cache API 的副本：保留 max-age=300 让 Cloudflare 知道 TTL
 			const cacheResponse = new Response(screenshot, {
 				status: 200,
 				headers: {
 					"Content-Type": "image/png",
-					"Cache-Control": "public, max-age=60",
+					"Cache-Control": "public, max-age=300",
 				},
 			});
 
