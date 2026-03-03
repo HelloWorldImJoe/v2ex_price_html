@@ -1,14 +1,28 @@
 {
-        "$schema": "node_modules/wrangler/config-schema.json",
-        "name": "v2ex-price-img",
-        "main": "src/index.ts",
-        "compatibility_date": "2025-10-08",
-        "compatibility_flags": ["nodejs_compat"],
-        "upload_source_maps": true,
-        "observability": {
-                "enabled": true
-        },
-        "browser": {
-                "binding": "MYBROWSER"
-        }
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "v2ex-price-img",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": true
+  },
+  "browser": {
+    "binding": "MYBROWSER"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SCREENSHOT_DO",
+        "class_name": "ScreenshotDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["ScreenshotDO"]
+    }
+  ]
 }

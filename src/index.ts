@@ -22,8 +22,35 @@ const HTML_CONTENT = `<!DOCTYPE html>
 const CACHE_KEY = "https://worker.internal/v2ex-price-screenshot";
 
 /**
- * 使用 Cloudflare Browser Rendering 对 index.html 截图，
- * 并通过 Cache API 缓存 60 秒。
+ * Durable Object：作为单例串行化所有浏览器截图请求。
+ * CF Browser Rendering 有并发会话数量限制（免费计划 2 个），
+ * 多个并发请求同时调用 puppeteer.launch 会触发 429。
+ * 通过 DO 将请求排队，确保同一时刻只有一个浏览器会话在运行。
+ */
+export class ScreenshotDO implements DurableObject {
+	constructor(private state: DurableObjectState, private env: Env) {}
+
+	async fetch(_request: Request): Promise<Response> {
+		const browser = await puppeteer.launch(this.env.MYBROWSER);
+		try {
+			const page = await browser.newPage();
+			await page.setViewport({ width: 800, height: 300 });
+			await page.setContent(HTML_CONTENT, { waitUntil: "domcontentloaded", timeout: 15000 });
+			// 等待图表组件渲染完成
+			await new Promise((resolve) => setTimeout(resolve, 5000));
+			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 800, height: 300 } });
+			return new Response(screenshot, {
+				status: 200,
+				headers: { "Content-Type": "image/png" },
+			});
+		} finally {
+			await browser.close();
+		}
+	}
+}
+
+/**
+ * Worker 入口：检查缓存，缓存未命中时将截图任务转发给 DO 单例。
  */
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -46,45 +73,37 @@ export default {
 				return res;
 			}
 
-			// --- 2. 启动浏览器截图 ---
-			const browser = await puppeteer.launch(env.MYBROWSER);
-			try {
-				const page = await browser.newPage();
-				await page.setViewport({ width: 800, height: 300 });
-				// 使用 domcontentloaded：DOM 解析完即继续，避免等待 TradingView
-				// 模块的级联请求和 WebSocket 连接导致 load 事件迟迟不触发而超时
-				await page.setContent(HTML_CONTENT, { waitUntil: "domcontentloaded", timeout: 15000 });
-				// 等待图表组件渲染完成
-				await new Promise((resolve) => setTimeout(resolve, 5000));
-				const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 800, height: 300 } });
+			// --- 2. 转发给 DO 单例执行截图（自动排队，避免并发 429）---
+			const doId = env.SCREENSHOT_DO.idFromName("singleton");
+			const stub = env.SCREENSHOT_DO.get(doId);
+			const doResponse = await stub.fetch("https://do.internal/screenshot");
 
-				// 存入 Cache API 的副本：保留 max-age=300 让 Cloudflare 知道 TTL
-				const cacheResponse = new Response(screenshot, {
-					status: 200,
-					headers: {
-						"Content-Type": "image/png",
-						"Cache-Control": "public, max-age=300",
-					},
-				});
-
-				// --- 3. 存入缓存（使用 waitUntil 避免阻塞响应） ---
-				ctx.waitUntil(cache.put(cacheRequest, cacheResponse.clone()));
-
-				// 返回给浏览器的副本：禁止浏览器本地缓存，确保每次都拿到最新图片
-				return new Response(screenshot, {
-					status: 200,
-					headers: {
-						"Content-Type": "image/png",
-						"Cache-Control": "no-store",
-						"X-Cache": "MISS",
-					},
-				});
-			} finally {
-				await browser.close();
+			if (!doResponse.ok) {
+				const text = await doResponse.text();
+				return new Response(`Screenshot failed: ${text}`, { status: doResponse.status });
 			}
+
+			const screenshot = await doResponse.arrayBuffer();
+
+			// --- 3. 存入缓存 ---
+			const cacheResponse = new Response(screenshot, {
+				status: 200,
+				headers: {
+					"Content-Type": "image/png",
+					"Cache-Control": "public, max-age=300",
+				},
+			});
+			ctx.waitUntil(cache.put(cacheRequest, cacheResponse.clone()));
+
+			return new Response(screenshot, {
+				status: 200,
+				headers: {
+					"Content-Type": "image/png",
+					"Cache-Control": "no-store",
+					"X-Cache": "MISS",
+				},
+			});
 		} catch (err: unknown) {
-			// 捕获所有异常（包括 puppeteer TimeoutError 等），
-			// 返回 500 而不是让 Worker 抛出未捕获异常导致 CF Error 1101
 			const message = err instanceof Error ? err.message : String(err);
 			return new Response(`Screenshot failed: ${message}`, { status: 500 });
 		}

@@ -7,6 +7,7 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		MYBROWSER: Fetcher;
+		SCREENSHOT_DO: DurableObjectNamespace;
 	}
 }
 interface Env extends Cloudflare.Env {}
