@@ -50,7 +50,7 @@ export default {
 		try {
 			const page = await browser.newPage();
 			await page.setViewport({ width: 800, height: 300 });
-			await page.setContent(HTML_CONTENT, { waitUntil: "networkidle0" });
+			await page.setContent(HTML_CONTENT, { waitUntil: "load", timeout: 15000 });
 			// 等待图表组件渲染完成
 			await new Promise((resolve) => setTimeout(resolve, 5000));
 			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 800, height: 300 } });
