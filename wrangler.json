@@ -1,0 +1,14 @@
+{
+        "$schema": "node_modules/wrangler/config-schema.json",
+        "name": "hello-world-do-template",
+        "main": "src/index.ts",
+        "compatibility_date": "2025-10-08",
+        "compatibility_flags": ["nodejs_compat"],
+        "upload_source_maps": true,
+        "observability": {
+                "enabled": true
+        },
+        "browser": {
+                "binding": "MYBROWSER"
+        }
+}
