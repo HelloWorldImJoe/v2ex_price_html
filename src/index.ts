@@ -90,7 +90,7 @@ export default {
 				status: 200,
 				headers: {
 					"Content-Type": "image/png",
-					"Cache-Control": "public, max-age=300",
+					"Cache-Control": "public, max-age=1800",
 				},
 			});
 			ctx.waitUntil(cache.put(cacheRequest, cacheResponse.clone()));
