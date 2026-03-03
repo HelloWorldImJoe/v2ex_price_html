@@ -14,7 +14,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-scale width="800" height="300"></tv-mini-chart>
+  <tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range width="800" height="300"></tv-mini-chart>
 </body>
 </html>`;
 
