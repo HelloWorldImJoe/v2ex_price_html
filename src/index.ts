@@ -7,14 +7,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script type="module" src="https://widgets.tradingview-widget.com/w/zh_CN/tv-mini-chart.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #131722; }
-    tv-mini-chart { display: block; width: 800px; height: 300px; }
-  </style>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body { background: #131722; padding: 20px; display: grid; gap: 24px; justify-content: center; }
+		tv-mini-chart { display: block; width: 800px; height: 300px; }
+	</style>
 </head>
 <body>
-  <tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range width="800" height="300"></tv-mini-chart>
+	<tv-mini-chart symbol="BINANCE:BTCUSDT" show-time-range line-chart-type="Line"></tv-mini-chart>
+	<tv-mini-chart symbol="BINANCE:SOLUSDT" show-time-range line-chart-type="Line"></tv-mini-chart>
+	<tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range line-chart-type="Line"></tv-mini-chart>
 </body>
 </html>`;
 
@@ -34,11 +36,11 @@ export class ScreenshotDO implements DurableObject {
 		const browser = await puppeteer.launch(this.env.MYBROWSER);
 		try {
 			const page = await browser.newPage();
-			await page.setViewport({ width: 800, height: 300 });
+			await page.setViewport({ width: 840, height: 970 });
 			await page.setContent(HTML_CONTENT, { waitUntil: "domcontentloaded", timeout: 15000 });
 			// 等待图表组件渲染完成
 			await new Promise((resolve) => setTimeout(resolve, 5000));
-			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 800, height: 300 } });
+			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 840, height: 970 } });
 			return new Response(screenshot, {
 				status: 200,
 				headers: { "Content-Type": "image/png" },
