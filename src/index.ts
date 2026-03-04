@@ -14,9 +14,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
 	</style>
 </head>
 <body>
-	<tv-mini-chart symbol="BINANCE:BTCUSDT" show-time-range line-chart-type="Line" width="1100" height="360"></tv-mini-chart>
-	<tv-mini-chart symbol="BINANCE:SOLUSDT" show-time-range line-chart-type="Line" width="1100" height="360"></tv-mini-chart>
-	<tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range line-chart-type="Line" width="1100" height="360"></tv-mini-chart>
+	<tv-mini-chart symbol="BINANCE:BTCUSDT" show-time-range width="1100" height="360"></tv-mini-chart>
+	<tv-mini-chart symbol="BINANCE:SOLUSDT" show-time-range width="1100" height="360"></tv-mini-chart>
+	<tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range width="1100" height="360"></tv-mini-chart>
+	<tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range time-frame="7D" width="1100" height="360"></tv-mini-chart>
+	<tv-mini-chart symbol="WEEX:V2EXUSDT" show-time-range time-frame="1M" width="1100" height="360"></tv-mini-chart>
 </body>
 </html>`;
 
@@ -36,11 +38,11 @@ export class ScreenshotDO implements DurableObject {
 		const browser = await puppeteer.launch(this.env.MYBROWSER);
 		try {
 			const page = await browser.newPage();
-			await page.setViewport({ width: 1240, height: 1400 });
+			await page.setViewport({ width: 1240, height: 2000 });
 			await page.setContent(HTML_CONTENT, { waitUntil: "domcontentloaded", timeout: 15000 });
 			// 等待图表组件渲染完成
 			await new Promise((resolve) => setTimeout(resolve, 5000));
-			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 1240, height: 1400 } });
+			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 1240, height: 2000 } });
 			return new Response(screenshot, {
 				status: 200,
 				headers: { "Content-Type": "image/png" },
@@ -92,7 +94,7 @@ export default {
 				status: 200,
 				headers: {
 					"Content-Type": "image/png",
-					"Cache-Control": "public, max-age=1800",
+					"Cache-Control": "public, max-age=3600", // 1 小时
 				},
 			});
 			ctx.waitUntil(cache.put(cacheRequest, cacheResponse.clone()));
