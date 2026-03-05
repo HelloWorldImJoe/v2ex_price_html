@@ -26,15 +26,35 @@ const HTML_CONTENT = `<!DOCTYPE html>
 const CACHE_KEY = "https://worker.internal/v2ex-price-screenshot";
 
 /**
- * Durable Object：作为单例串行化所有浏览器截图请求。
+ * Durable Object：单例去重所有浏览器截图请求。
  * CF Browser Rendering 有并发会话数量限制（免费计划 2 个），
  * 多个并发请求同时调用 puppeteer.launch 会触发 429。
- * 通过 DO 将请求排队，确保同一时刻只有一个浏览器会话在运行。
+ * 通过 DO 单例 + Promise 复用，确保同一时刻只启动一个浏览器会话：
+ * 若截图正在进行中，后续请求直接 await 同一个 Promise，
+ * 截图完成后所有等待者共享同一结果，无需重复渲染。
  */
 export class ScreenshotDO implements DurableObject {
+	/** 正在进行中的截图 Promise，为 null 表示当前空闲 */
+	private activeScreenshot: Promise<Uint8Array> | null = null;
+
 	constructor(private state: DurableObjectState, private env: Env) {}
 
 	async fetch(_request: Request): Promise<Response> {
+		// 若已有截图任务在执行，复用同一 Promise，避免启动多个浏览器会话
+		if (!this.activeScreenshot) {
+			this.activeScreenshot = this.takeScreenshot().finally(() => {
+				this.activeScreenshot = null;
+			});
+		}
+
+		const screenshot = await this.activeScreenshot;
+		return new Response(screenshot, {
+			status: 200,
+			headers: { "Content-Type": "image/png" },
+		});
+	}
+
+	private async takeScreenshot(): Promise<Uint8Array> {
 		const browser = await puppeteer.launch(this.env.MYBROWSER);
 		try {
 			const page = await browser.newPage();
@@ -42,11 +62,7 @@ export class ScreenshotDO implements DurableObject {
 			await page.setContent(HTML_CONTENT, { waitUntil: "domcontentloaded", timeout: 15000 });
 			// 等待图表组件渲染完成
 			await new Promise((resolve) => setTimeout(resolve, 5000));
-			const screenshot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 1240, height: 2000 } });
-			return new Response(screenshot, {
-				status: 200,
-				headers: { "Content-Type": "image/png" },
-			});
+			return await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: 1240, height: 2000 } });
 		} finally {
 			await browser.close();
 		}
